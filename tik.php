@@ -1,5 +1,12 @@
 <?php
+//รับจาก web
 $remain=$_GET['v'];
+//ใส่ line token
+$token = 'xxxxxxxxxxxxxxxxx';
+$imageThumbnail="http://kt1b.com/lisalisa.jpg";
+$imageFullsize="http://kt1b.com/lisalisa.jpg";
+&img="&imageThumbnail=".$imageThumbnail."&imageFullsize=".$imageFullsize;
+
 function send_line_notify($message, $token)
 {
   $ch = curl_init();
@@ -16,15 +23,13 @@ function send_line_notify($message, $token)
   curl_close( $ch );
   return $result;
 }
-$img="&imageThumbnail=http://kt1b.com/lisalisa.jpg&imageFullsize=http://kt1b.com/lisalisa.jpg";
+//ค่า v 0 
 if($remain > 0) {
 $message="เหลือเครื่องเปิดอยู่ ".$remain." เครื่อง&stickerPackageId=2&stickerId=161";
 }
 else {
 $message="ไม่เหลือเครื่องเปิดอยู่ ".$img;
 }
-
-$token = 'xxxxxxxxxxxxxxxxx';
 
 echo send_line_notify($message, $token);
 
