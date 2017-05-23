@@ -1,0 +1,178 @@
+<?php
+//ติดต่อฐานข้อมูล
+$ServerName   = "127.0.0.1";
+$UserName     = "root";
+$UserPassword = "xxxxxxx";
+$DatabaseName = "iwebcafe3";
+$token        = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+
+//ฟังชั่นติดต่อฐานข้อมูล
+function Conn2DB()
+{
+    global $conn;
+    global $ServerName;
+    global $UserName;
+    global $UserPassword;
+    global $DatabaseName;
+    $conn = mysql_connect($ServerName, $UserName, $UserPassword);
+    if (!$conn)
+        die("ไม่สามารถติดต่อกับ MySQL ได้");
+    
+    mysql_select_db($DatabaseName, $conn) or die("ไม่สามารถเลือกใช้งานฐานข้อมูลได้");
+    
+}
+
+function CloseDB()
+{
+    global $conn;
+    mysql_close($conn);
+}
+
+function ChkComputer()
+{
+    global $conn;
+    $strSQL = "SELECT * FROM computer Order by ComputerName";
+    $result = mysql_query($strSQL, $conn);
+    $arr    = array();
+    while ($rs = mysql_fetch_array($result)) {
+        array_push($arr, $rs);
+    }
+    return $arr;
+}
+function ChkMember($id)
+{
+    global $conn;
+    $strSQL = "SELECT * FROM member Where Code_MB = '$id'";
+    $result = mysql_query($strSQL, $conn);
+    $rs     = mysql_fetch_array($result);
+    return $rs;
+}
+function ChkCard($id)
+{
+    global $conn;
+    $strSQL = "SELECT * FROM card Where Card_ID = '$id' ";
+    $result = mysql_query($strSQL, $conn);
+    $rs     = mysql_fetch_array($result);
+    return $rs;
+}
+function add0($value)
+{
+    if ($value < 10) {
+        $result = '0' . $value;
+    } else {
+        $result = $value;
+    }
+    return $result;
+}
+?>
+<?php
+Conn2DB();
+?>
+<?php
+$com        = ChkComputer();
+$i          = 0;
+$remain_no  = "";
+$right_side = 0;
+foreach ($com as $computer) {
+
+    if ($computer['ServiceType'] != 0 && $computer['ServiceType'] != 1) {
+        $id     = $computer['LastCode_1'];
+        $member = ChkMember($id);
+        $remain = $member['ResultMoney'];
+
+		// check right side 1-9
+		if (intval($computer['Computer_NO']) < 10) {
+			$right_side++;
+		}
+      
+        //IF not member
+        if ($computer['ServiceType'] != 2) {
+            $card   = ChkCard($id);
+            $remain = $card['Result'];
+        }
+        
+        if ($computer['ServiceType'] == 3) {
+            $card   = ChkCard($id);
+            $remain = $card['Result'];
+            $money  = number_format($card['Result'], 1) . " ฿";
+        }
+        
+        if ($computer['ServiceType'] == 4) {
+            $card   = ChkCard($id);
+            $remain = $card['Price'];
+        }
+        
+        if ($member['ResultDue'] > 0) {
+            $alltime = (5 * $remain);
+        }
+        if ($member['ResultDue'] == 0) {
+            $alltime = (6 * $remain);
+        }
+        $hour   = floor($alltime / 60);
+        $hour   = add0($hour);
+        $minute = $alltime % 60;
+        $minute = add0($minute);
+        $time   = $hour . ":" . $minute;
+        
+        $name = iconv('tis-620', 'utf-8', $member['NickName']);
+        if ($name != "") {
+            $name = " [" . $name . "]";
+        }
+        $i++;
+        $remain_no = $remain_no . $computer['Computer_NO'] . $name . "\n";
+    }
+} // foreach
+$remain = $i;
+
+CloseDB();
+
+$file    = 'inuse.txt';
+$current = file_get_contents($file);
+$lisa 	 = rand(1, 4);
+$img  	 = "&imageThumbnail=http://kt1b.com/lisa/00" . $lisa . ".jpg&imageFullsize=http://kt1b.com/lisa/00" . $lisa . ".jpg";
+
+similar_text($remain_no, $current, $percent);
+if (($percent < 100) and (($remain_no != "") or ($current != ""))) {
+    // Open the file to get existing content
+    file_put_contents($file, $remain_no);
+    
+    function send_line_notify($message, $token)
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, "https://notify-api.line.me/api/notify");
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, "message=$message");
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+        $headers = array(
+            "Content-type: application/x-www-form-urlencoded",
+            "Authorization: Bearer $token"
+        );
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        $result = curl_exec($ch);
+        curl_close($ch);
+        return $result;
+    }
+    if ($right_side < 1) {
+		$RightStatus = "แถบขวาไม่มีคนเล่นปิดด้วย";
+        $sticker = "&stickerPackageId=1&stickerId=109";
+    } else {
+        //$sticker = "&stickerPackageId=1&stickerId=161";
+        $sticker = "";
+		$RightStatus = "";
+    }
+    
+    if ($remain > 0) {
+        $message = "เครื่องเปิดอยู่ " . $remain . " เครื่อง \n" . $remain_no . $RightStatus;
+    } else {
+        $message = "ปิดร้านได้" . $img;
+    }
+       
+    echo send_line_notify($message . $sticker, $token) . $right_side;
+    
+} else {
+    echo "ไม่เปลี่ยนแปลง" . $percent;
+}
+?>
